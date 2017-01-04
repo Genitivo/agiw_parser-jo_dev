@@ -1,11 +1,11 @@
 var unique = require('array-unique');
 
-module.exports = function(callback){
+module.exports = function(articolo){
 
-	var text = callback.text;
-	var pe = callback.pe;
-	var seeds = callback.seeds;
-	var synonyms = callback.synonyms;
+	var text = articolo.text;
+	var pe = articolo.pe;
+	var seeds = articolo.seeds;
+	var synonyms = articolo.synonyms;
 	var keywords = [];
 	keywords = keywords.concat(pe);
 	keywords = keywords.concat(seeds);
@@ -13,11 +13,12 @@ module.exports = function(callback){
 
 	keywords = unique(keywords);
 
+	var texto = [];
+
 
 	let wiki_docs = [];
 
 	//console.log('TESTO PRE TAG:\n'+text.join('\n'));
-
 
 	for(i in text){
 		//wiki_docs.push({id:docs_list[i].id, text:[] });
@@ -55,14 +56,36 @@ module.exports = function(callback){
 			// paragraph = paragraph.replace(seeds_regex, '<SEED>');
 			// paragraph = paragraph.replace(synonyms_regex, '<SYNONYM>');
 
-			if(text[i].indexOf('<PE>')==-1){
-				var reg = new RegExp("[^a-zA-Z]"+keywords[j]+"[^a-zA-Z]","g");
+			if(tag === '<PE>'){
+				var reg = new RegExp("[^a-zA-Z]"+keywords[j]+"[^a-zA-Z]","ig");
+
+				text[i] = text[i].replace(reg, function(match){
+
+					if(match=='' && text[i].indexOf(match)==0){
+						return tag+keywords[j]+tag;
+					}
+					if(text[i].indexOf('[[')!==-1 && (text[i].indexOf(match)+1 > (text[i].indexOf('[[')+2) ) && (text[i].indexOf(match) < (text[i].indexOf(']]')+2) ) ) {
+						return match;
+					}
+					else
+						return match.charAt(0)+tag+keywords[j]+tag+match.charAt(match.length-1);
+				});
+			}
+			else if(tag === '<SEED>' || tag === '<SYNONYM>') {
+
+				if(text[i].indexOf('<PE>')==-1 && tag === '<SEED>' || text[i].indexOf('<PE>')==-1 && text[i].indexOf('<SEED>')==-1 && tag === '<SYNONYM>'){
+				var reg = new RegExp("The "+keywords[j]+"[^a-zA-Z]","ig");
 
 				text[i] = text[i].replace(reg,function(match){
-					//console.log("MATCH: "+match);
-					return match.charAt(0)+tag+keywords[j]+tag+match.charAt(match.length-1);
+					if(text[i].indexOf('[[')!==-1 && text[i].indexOf(match) > text[i].indexOf('[[') && text[i].indexOf(match) < text[i].indexOf(']]')) {
+						return match;
+					}
+					else
+						return 'The '+tag+keywords[j]+tag+match.charAt(match.length-1);
 				});
-	}
+			}
+
+		}
 
 			//
 			// if(matching.length !== 0){
@@ -72,22 +95,28 @@ module.exports = function(callback){
 			// }
 
 		}
+		let count_pe = (text[i].match(/<PE>/g) || []).length /2;
+		let count_seeds = (text[i].match(/<SEED>/g) || []).length /2;
+		let count_syn = (text[i].match(/<SYNONYM>/g) || []).length /2;
+
+		if((count_pe+count_seeds+count_syn)>0){
+			texto.push(text[i]);
+		}
 		//wiki_docs[i].mentions = matching_in_doc;
 
 	}
 
-	var testo = text.join('\n');
+
+	var testo = texto.join('\n');
 	let count_pe = (testo.match(/<PE>/g) || []).length /2;
 	let count_seeds = (testo.match(/<SEED>/g) || []).length /2;
 	let count_syn = (testo.match(/<SYNONYM>/g) || []).length /2;
 
-	callback.text = text;
-	//console.log('TESTO POST TAG:\n'+testo);
+	articolo.text = texto;
 
-	let callback_obj = {id: callback.id, primary_entity: count_pe, seeds: count_seeds, syn: count_syn};
+	let articolo_obj = {id: articolo.id, keywords: keywords, primary_entity: count_pe, seeds: count_seeds, syn: count_syn};
 
-	return callback_obj;
-	//console.log("PE: "+count_pe+"\nSEEDS: "+count_seeds+"\nSYNONYMS: "+count_syn);
+	return articolo_obj;
 
-	//callback(wiki_docs);
+	//articolo(wiki_docs);
 }
